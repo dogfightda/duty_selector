@@ -131,29 +131,75 @@
         .buttons-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 30px;
+            margin-top: 15px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0;
+            margin-bottom: 5px;
         }
 
         .duty-button {
-            min-width: 60px;
-            height: 36px;
+            min-width: 70px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 500;
         }
 
+        .duty-button.plus-button {
+            min-width: 70px;
+            height: 40px;
+            font-size: 1.2rem;
+            background: linear-gradient(145deg, #4a90e2, #357abd);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .duty-button.plus-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(145deg, #357abd, #2a5f94);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .duty-button.plus-button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
         .cancel-btn {
-            color: #000 !important;
+            color: #dc3545 !important;
             font-weight: bold;
             padding: 0.25rem 0.5rem;
-            font-size: 0.875rem;
+            font-size: 1.2rem;
             line-height: 1;
             min-width: 36px;
             height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            top: -2px;
+            margin-left: 0;
+        }
+
+        .cancel-btn:hover {
+            color: #ff4d4d !important;
+            transform: scale(1.1);
+        }
+
+        .cancel-btn:active {
+            transform: scale(0.95);
         }
 
         .admin-controls {
@@ -329,7 +375,7 @@
                 
                 for (let i = 0; i < dutyData.maxParticipants; i++) {
                     const buttonGroup = document.createElement("div");
-                    buttonGroup.className = "d-flex gap-1";
+                    buttonGroup.className = "button-group";
                     
                     const btn = document.createElement("button");
                     btn.className = "btn btn-metal btn-sm duty-button";
@@ -342,8 +388,8 @@
                         // 관리자이거나 현재 사용자의 당번인 경우에만 취소 버튼 표시
                         if (isAdmin || participants[i].nickname === currentNickname) {
                             const cancelBtn = document.createElement("button");
-                            cancelBtn.className = "btn btn-danger btn-sm cancel-btn";
-                            cancelBtn.innerHTML = "X";
+                            cancelBtn.className = "btn btn-link cancel-btn";
+                            cancelBtn.innerHTML = "×";
                             cancelBtn.onclick = function() {
                                 if (confirm('정말로 취소하시겠습니까?')) {
                                     participantsRef.child(i).remove()
@@ -365,6 +411,7 @@
                         }
                     } else {
                         btn.innerHTML = "+";
+                        btn.className = "btn btn-metal btn-sm duty-button plus-button";
                         btn.onclick = function() {
                             const nickname = document.getElementById("nickname").value;
                             if (!nickname) {
@@ -418,15 +465,13 @@
                                                     // 관리자이거나 현재 사용자의 당번인 경우에만 취소 버튼 표시
                                                     if (isAdmin || nickname === currentNickname) {
                                                         const cancelBtn = document.createElement("button");
-                                                        cancelBtn.className = "btn btn-danger btn-sm cancel-btn";
-                                                        cancelBtn.innerHTML = "X";
+                                                        cancelBtn.className = "btn btn-link cancel-btn";
+                                                        cancelBtn.innerHTML = "×";
                                                         cancelBtn.onclick = function() {
                                                             if (confirm('정말로 취소하시겠습니까?')) {
                                                                 participantsRef.child(i).remove()
                                                                     .then(() => {
-                                                                        btn.innerHTML = "+";
-                                                                        btn.disabled = false;
-                                                                        this.remove(); // 취소 버튼 제거
+                                                                        location.reload(); // 취소 후 페이지 새로고침
                                                                     })
                                                                     .catch((error) => {
                                                                         console.error('Error removing participant:', error);
@@ -436,6 +481,7 @@
                                                         };
                                                         buttonGroup.appendChild(cancelBtn);
                                                     }
+                                                    location.reload(); // 당번 선택 후 페이지 새로고침
                                                 })
                                                 .catch((error) => {
                                                     console.error('Error saving participant:', error);
@@ -467,6 +513,18 @@
             document.getElementById("adminControls").style.display = "block";
             document.getElementById("adminLoginBtn").style.display = "none";
             document.getElementById("adminLogoutBtn").style.display = "inline-block";
+            
+            // 현재 오픈된 설정 불러오기
+            db.ref('duty_selector/settings').once('value')
+                .then((snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        document.getElementById("startDate").value = new Date(data.startDate).toISOString().split('T')[0];
+                        document.getElementById("endDate").value = new Date(data.endDate).toISOString().split('T')[0];
+                        document.getElementById("maxParticipants").value = data.maxParticipants;
+                    }
+                });
+            
             alert("관리자 로그인 성공!");
         } else {
             alert("로그인 실패");
@@ -535,6 +593,7 @@
         }
         localStorage.setItem('duty_selector_nickname', nickname);
         alert('닉네임이 저장되었습니다.');
+        location.reload(); // 페이지 새로고침 추가
     }
 
     function openDates() {
