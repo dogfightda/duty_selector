@@ -104,19 +104,19 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .date-card.highlight {
+        .date-card.today {
             background: linear-gradient(145deg, #2a2d32, #1a1d21);
             border: 2px solid var(--accent-color);
             box-shadow: 0 0 20px rgba(74, 144, 226, 0.4);
             transform: scale(1.02);
         }
 
-        .date-card.highlight .date-title {
+        .date-card.today .date-title {
             color: var(--accent-color);
             font-weight: 700;
         }
 
-        .date-card.highlight:hover {
+        .date-card.today:hover {
             transform: scale(1.03);
             box-shadow: 0 0 25px rgba(74, 144, 226, 0.5);
         }
@@ -131,75 +131,29 @@
         .buttons-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 30px;
-            margin-top: 15px;
-        }
-
-        .button-group {
-            display: flex;
-            gap: 0;
-            margin-bottom: 5px;
+            gap: 8px;
         }
 
         .duty-button {
-            min-width: 70px;
-            height: 40px;
+            min-width: 60px;
+            height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 500;
         }
 
-        .duty-button.plus-button {
-            min-width: 70px;
-            height: 40px;
-            font-size: 1.2rem;
-            background: linear-gradient(145deg, #4a90e2, #357abd);
-            color: white;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-            transition: all 0.3s ease;
-        }
-
-        .duty-button.plus-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-            background: linear-gradient(145deg, #357abd, #2a5f94);
-            border-color: rgba(255, 255, 255, 0.4);
-        }
-
-        .duty-button.plus-button:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
         .cancel-btn {
-            color: #dc3545 !important;
+            color: #000 !important;
             font-weight: bold;
             padding: 0.25rem 0.5rem;
-            font-size: 1.2rem;
+            font-size: 0.875rem;
             line-height: 1;
             min-width: 36px;
             height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            position: relative;
-            top: -2px;
-            margin-left: 0;
-        }
-
-        .cancel-btn:hover {
-            color: #ff4d4d !important;
-            transform: scale(1.1);
-        }
-
-        .cancel-btn:active {
-            transform: scale(0.95);
         }
 
         .admin-controls {
@@ -342,16 +296,10 @@
             const card = document.createElement("div");
             card.className = "date-card";
 
-            // 2025년 6월 2일인지 확인
-            const isHighlightDate = day.getFullYear() === 2025 && 
-                                  day.getMonth() === 5 && // 6월은 5 (0-based)
-                                  day.getDate() === 2;
-            if (isHighlightDate) {
-                card.classList.add('highlight');
-            }
-
             // 오늘 날짜인지 확인
-            const isToday = day.getTime() === today.getTime();
+            const isToday = day.getFullYear() === today.getFullYear() && 
+                           day.getMonth() === today.getMonth() && 
+                           day.getDate() === today.getDate();
             if (isToday) {
                 card.classList.add('today');
             }
@@ -375,7 +323,7 @@
                 
                 for (let i = 0; i < dutyData.maxParticipants; i++) {
                     const buttonGroup = document.createElement("div");
-                    buttonGroup.className = "button-group";
+                    buttonGroup.className = "d-flex gap-1";
                     
                     const btn = document.createElement("button");
                     btn.className = "btn btn-metal btn-sm duty-button";
@@ -388,8 +336,8 @@
                         // 관리자이거나 현재 사용자의 당번인 경우에만 취소 버튼 표시
                         if (isAdmin || participants[i].nickname === currentNickname) {
                             const cancelBtn = document.createElement("button");
-                            cancelBtn.className = "btn btn-link cancel-btn";
-                            cancelBtn.innerHTML = "×";
+                            cancelBtn.className = "btn btn-danger btn-sm cancel-btn";
+                            cancelBtn.innerHTML = "X";
                             cancelBtn.onclick = function() {
                                 if (confirm('정말로 취소하시겠습니까?')) {
                                     participantsRef.child(i).remove()
@@ -411,7 +359,6 @@
                         }
                     } else {
                         btn.innerHTML = "+";
-                        btn.className = "btn btn-metal btn-sm duty-button plus-button";
                         btn.onclick = function() {
                             const nickname = document.getElementById("nickname").value;
                             if (!nickname) {
@@ -465,13 +412,15 @@
                                                     // 관리자이거나 현재 사용자의 당번인 경우에만 취소 버튼 표시
                                                     if (isAdmin || nickname === currentNickname) {
                                                         const cancelBtn = document.createElement("button");
-                                                        cancelBtn.className = "btn btn-link cancel-btn";
-                                                        cancelBtn.innerHTML = "×";
+                                                        cancelBtn.className = "btn btn-danger btn-sm cancel-btn";
+                                                        cancelBtn.innerHTML = "X";
                                                         cancelBtn.onclick = function() {
                                                             if (confirm('정말로 취소하시겠습니까?')) {
                                                                 participantsRef.child(i).remove()
                                                                     .then(() => {
-                                                                        location.reload(); // 취소 후 페이지 새로고침
+                                                                        btn.innerHTML = "+";
+                                                                        btn.disabled = false;
+                                                                        this.remove(); // 취소 버튼 제거
                                                                     })
                                                                     .catch((error) => {
                                                                         console.error('Error removing participant:', error);
@@ -481,7 +430,6 @@
                                                         };
                                                         buttonGroup.appendChild(cancelBtn);
                                                     }
-                                                    location.reload(); // 당번 선택 후 페이지 새로고침
                                                 })
                                                 .catch((error) => {
                                                     console.error('Error saving participant:', error);
@@ -513,18 +461,6 @@
             document.getElementById("adminControls").style.display = "block";
             document.getElementById("adminLoginBtn").style.display = "none";
             document.getElementById("adminLogoutBtn").style.display = "inline-block";
-            
-            // 현재 오픈된 설정 불러오기
-            db.ref('duty_selector/settings').once('value')
-                .then((snapshot) => {
-                    const data = snapshot.val();
-                    if (data) {
-                        document.getElementById("startDate").value = new Date(data.startDate).toISOString().split('T')[0];
-                        document.getElementById("endDate").value = new Date(data.endDate).toISOString().split('T')[0];
-                        document.getElementById("maxParticipants").value = data.maxParticipants;
-                    }
-                });
-            
             alert("관리자 로그인 성공!");
         } else {
             alert("로그인 실패");
@@ -593,7 +529,6 @@
         }
         localStorage.setItem('duty_selector_nickname', nickname);
         alert('닉네임이 저장되었습니다.');
-        location.reload(); // 페이지 새로고침 추가
     }
 
     function openDates() {
