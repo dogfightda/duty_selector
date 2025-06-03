@@ -63,6 +63,9 @@
             padding: 8px 16px;
             font-weight: 500;
             transition: all 0.2s ease;
+            min-width: 100px;
+            height: min-content;
+            align-self: center;
         }
 
         .btn-metal:hover {
@@ -126,6 +129,10 @@
             font-weight: 600;
             margin-bottom: 15px;
             color: var(--text-primary);
+        }
+
+        .date-title.mb-0 {
+            margin-right: 20px;
         }
 
         .buttons-container {
@@ -295,160 +302,139 @@
             const day = new Date(dt);
             const card = document.createElement("div");
             card.className = "date-card";
-
-            // 오늘 날짜인지 확인
             const isToday = day.getFullYear() === today.getFullYear() && 
-                           day.getMonth() === today.getMonth() && 
-                           day.getDate() === today.getDate();
-            if (isToday) {
-                card.classList.add('today');
-            }
-
-            const dateText = day.toLocaleDateString('ko-KR', { 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric',
-                weekday: 'long'
-            });
+                            day.getMonth() === today.getMonth() && 
+                            day.getDate() === today.getDate();
+            if (isToday) card.classList.add('today');
+            const dateText = day.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
             const dateKey = day.toISOString().split('T')[0];
-            card.innerHTML = `<div class="date-title">${dateText}</div>`;
 
-            // 해당 날짜의 저장된 당번 정보 실시간 감시
-            const participantsRef = db.ref(`duty_selector/participants/${dateKey}`);
-            participantsRef.on('value', (snapshot) => {
-                const participants = snapshot.val() || {};
-                const buttonsContainer = card.querySelector('.buttons-container') || document.createElement('div');
-                buttonsContainer.className = 'buttons-container d-flex flex-wrap gap-1 mt-2';
-                buttonsContainer.innerHTML = ''; // 기존 버튼들 제거
-                
-                for (let i = 0; i < dutyData.maxParticipants; i++) {
-                    const buttonGroup = document.createElement("div");
-                    buttonGroup.className = "d-flex gap-1";
-                    
-                    const btn = document.createElement("button");
-                    btn.className = "btn btn-metal btn-sm duty-button";
-                    
-                    // 저장된 당번이 있으면 표시
-                    if (participants[i]) {
-                        btn.innerHTML = participants[i].nickname;
-                        btn.disabled = true;
-                        
-                        // 관리자이거나 현재 사용자의 당번인 경우에만 취소 버튼 표시
-                        if (isAdmin || participants[i].nickname === currentNickname) {
-                            const cancelBtn = document.createElement("button");
-                            cancelBtn.className = "btn btn-danger btn-sm cancel-btn";
-                            cancelBtn.innerHTML = "X";
-                            cancelBtn.onclick = function() {
-                                if (confirm('정말로 취소하시겠습니까?')) {
-                                    participantsRef.child(i).remove()
-                                        .then(() => {
-                                            btn.innerHTML = "+";
-                                            btn.disabled = false;
-                                            this.remove(); // 취소 버튼 제거
-                                        })
-                                        .catch((error) => {
-                                            console.error('Error removing participant:', error);
-                                            alert('취소 중 오류가 발생했습니다.');
-                                        });
-                                }
-                            };
-                            buttonGroup.appendChild(btn);
-                            buttonGroup.appendChild(cancelBtn);
-                        } else {
-                            buttonGroup.appendChild(btn);
-                        }
-                    } else {
-                        btn.innerHTML = "+";
-                        btn.onclick = function() {
-                            const nickname = document.getElementById("nickname").value;
-                            if (!nickname) {
-                                alert("닉네임을 입력하세요.");
-                                return;
-                            }
-                            
-                            // 실시간으로 중복 체크
-                            participantsRef.once('value')
-                                .then((snapshot) => {
-                                    const currentParticipants = snapshot.val() || {};
-                                    
-                                    // 현재 날짜에서 닉네임 중복 체크
-                                    for (const key in currentParticipants) {
-                                        if (currentParticipants[key].nickname === nickname) {
-                                            alert('이미 다른 날짜에 등록된 닉네임입니다.');
-                                            return;
-                                        }
+            db.ref(`duty_selector/times/${dateKey}`).once('value').then((timeSnap) => {
+                const savedTime = timeSnap.val();
+                let timeHtml = '';
+                if (isAdmin) {
+                    timeHtml = `<div class="d-flex gap-2"><input type="time" id="timeInput_${dateKey}" class="form-control my-2" placeholder="시간 입력"${savedTime ? ` value="${savedTime}"` : ''}><button class="btn btn-metal" onclick="saveTime('${dateKey}')">시간 저장</button></div>`;
+                } else if (savedTime) {
+                    timeHtml = `<span class="badge bg-info text-dark ms-2">당번 타임 ${savedTime}</span>`;
+                }
+                card.innerHTML = `<div class="d-flex align-items-center"><div class="date-title mb-0">${dateText}</div>${timeHtml}</div><div class="buttons-container"></div>`;
+
+                // 참가자 정보 표시
+                const participantsRef = db.ref(`duty_selector/participants/${dateKey}`);
+                participantsRef.on('value', (snapshot) => {
+                    const participants = snapshot.val() || {};
+                    const buttonsContainer = card.querySelector('.buttons-container') || document.createElement('div');
+                    buttonsContainer.className = 'buttons-container d-flex flex-wrap gap-1 mt-2';
+                    buttonsContainer.innerHTML = '';
+                    for (let i = 0; i < dutyData.maxParticipants; i++) {
+                        const buttonGroup = document.createElement("div");
+                        buttonGroup.className = "d-flex gap-1";
+                        const btn = document.createElement("button");
+                        btn.className = "btn btn-metal btn-sm duty-button";
+                        if (participants[i]) {
+                            btn.innerHTML = participants[i].nickname;
+                            btn.disabled = true;
+                            if (isAdmin || participants[i].nickname === currentNickname) {
+                                const cancelBtn = document.createElement("button");
+                                cancelBtn.className = "btn btn-danger btn-sm cancel-btn";
+                                cancelBtn.innerHTML = "X";
+                                cancelBtn.onclick = function() {
+                                    if (confirm('정말로 취소하시겠습니까?')) {
+                                        participantsRef.child(i).remove()
+                                            .then(() => {
+                                                btn.innerHTML = "+";
+                                                btn.disabled = false;
+                                                this.remove();
+                                            })
+                                            .catch((error) => {
+                                                console.error('Error removing participant:', error);
+                                                alert('취소 중 오류가 발생했습니다.');
+                                            });
                                     }
-                                    
-                                    // 다른 날짜에서도 닉네임 중복 체크
-                                    db.ref('duty_selector/participants').once('value')
-                                        .then((allSnapshot) => {
-                                            const allParticipants = allSnapshot.val() || {};
-                                            for (const date in allParticipants) {
-                                                for (const key in allParticipants[date]) {
-                                                    if (allParticipants[date][key].nickname === nickname) {
-                                                        alert('이미 다른 날짜에 등록된 닉네임입니다.');
-                                                        return;
-                                                    }
-                                                }
-                                            }
-                                            
-                                            // 중복이 없으면 저장
-                                            if (currentParticipants[i]) {
-                                                alert('이미 다른 사용자가 선택했습니다.');
+                                };
+                                buttonGroup.appendChild(btn);
+                                buttonGroup.appendChild(cancelBtn);
+                            } else {
+                                buttonGroup.appendChild(btn);
+                            }
+                        } else {
+                            btn.innerHTML = "+";
+                            btn.onclick = function() {
+                                const nickname = document.getElementById("nickname").value;
+                                if (!nickname) {
+                                    alert("닉네임을 입력하세요.");
+                                    return;
+                                }
+                                participantsRef.once('value')
+                                    .then((snapshot) => {
+                                        const currentParticipants = snapshot.val() || {};
+                                        for (const key in currentParticipants) {
+                                            if (currentParticipants[key].nickname === nickname) {
+                                                alert('이미 다른 날짜에 등록된 닉네임입니다.');
                                                 return;
                                             }
-                                            
-                                            // 파이어베이스에 당번 정보 저장
-                                            const participantData = {
-                                                nickname: nickname,
-                                                timestamp: Date.now()
-                                            };
-                                            
-                                            participantsRef.child(i).set(participantData)
-                                                .then(() => {
-                                                    btn.innerHTML = nickname;
-                                                    btn.disabled = true;
-                                                    
-                                                    // 관리자이거나 현재 사용자의 당번인 경우에만 취소 버튼 표시
-                                                    if (isAdmin || nickname === currentNickname) {
-                                                        const cancelBtn = document.createElement("button");
-                                                        cancelBtn.className = "btn btn-danger btn-sm cancel-btn";
-                                                        cancelBtn.innerHTML = "X";
-                                                        cancelBtn.onclick = function() {
-                                                            if (confirm('정말로 취소하시겠습니까?')) {
-                                                                participantsRef.child(i).remove()
-                                                                    .then(() => {
-                                                                        btn.innerHTML = "+";
-                                                                        btn.disabled = false;
-                                                                        this.remove(); // 취소 버튼 제거
-                                                                    })
-                                                                    .catch((error) => {
-                                                                        console.error('Error removing participant:', error);
-                                                                        alert('취소 중 오류가 발생했습니다.');
-                                                                    });
-                                                            }
-                                                        };
-                                                        buttonGroup.appendChild(cancelBtn);
+                                        }
+                                        db.ref('duty_selector/participants').once('value')
+                                            .then((allSnapshot) => {
+                                                const allParticipants = allSnapshot.val() || {};
+                                                for (const date in allParticipants) {
+                                                    for (const key in allParticipants[date]) {
+                                                        if (allParticipants[date][key].nickname === nickname) {
+                                                            alert('이미 다른 날짜에 등록된 닉네임입니다.');
+                                                            return;
+                                                        }
                                                     }
-                                                })
-                                                .catch((error) => {
-                                                    console.error('Error saving participant:', error);
-                                                    alert('저장 중 오류가 발생했습니다.');
-                                                });
-                                        });
-                                });
-                        };
-                        buttonGroup.appendChild(btn);
+                                                }
+                                                if (currentParticipants[i]) {
+                                                    alert('이미 다른 사용자가 선택했습니다.');
+                                                    return;
+                                                }
+                                                const participantData = {
+                                                    nickname: nickname,
+                                                    timestamp: Date.now()
+                                                };
+                                                participantsRef.child(i).set(participantData)
+                                                    .then(() => {
+                                                        btn.innerHTML = nickname;
+                                                        btn.disabled = true;
+                                                        if (isAdmin || nickname === currentNickname) {
+                                                            const cancelBtn = document.createElement("button");
+                                                            cancelBtn.className = "btn btn-danger btn-sm cancel-btn";
+                                                            cancelBtn.innerHTML = "X";
+                                                            cancelBtn.onclick = function() {
+                                                                if (confirm('정말로 취소하시겠습니까?')) {
+                                                                    participantsRef.child(i).remove()
+                                                                        .then(() => {
+                                                                            btn.innerHTML = "+";
+                                                                            btn.disabled = false;
+                                                                            this.remove();
+                                                                        })
+                                                                        .catch((error) => {
+                                                                            console.error('Error removing participant:', error);
+                                                                            alert('취소 중 오류가 발생했습니다.');
+                                                                        });
+                                                                }
+                                                            };
+                                                            buttonGroup.appendChild(cancelBtn);
+                                                        }
+                                                    })
+                                                    .catch((error) => {
+                                                        console.error('Error saving participant:', error);
+                                                        alert('저장 중 오류가 발생했습니다.');
+                                                    });
+                                            });
+                                    });
+                            };
+                            buttonGroup.appendChild(btn);
+                        }
+                        buttonsContainer.appendChild(buttonGroup);
                     }
-                    buttonsContainer.appendChild(buttonGroup);
-                }
-                
-                if (!card.querySelector('.buttons-container')) {
-                    card.appendChild(buttonsContainer);
-                }
+                    if (!card.querySelector('.buttons-container')) {
+                        card.appendChild(buttonsContainer);
+                    }
+                });
+                dateList.appendChild(card);
             });
-            
-            dateList.appendChild(card);
         }
     }
 
@@ -462,6 +448,7 @@
             document.getElementById("adminLoginBtn").style.display = "none";
             document.getElementById("adminLogoutBtn").style.display = "inline-block";
             alert("관리자 로그인 성공!");
+            location.reload(); // 페이지 새로고침
         } else {
             alert("로그인 실패");
         }
@@ -474,6 +461,7 @@
         document.getElementById("adminLoginBtn").style.display = "inline-block";
         document.getElementById("adminLogoutBtn").style.display = "none";
         alert("로그아웃 되었습니다.");
+        location.reload(); // 페이지 새로고침
     }
 
     // 페이지 로드 시 저장된 설정 불러오기
@@ -535,8 +523,10 @@
         const start = new Date(document.getElementById("startDate").value);
         const end = new Date(document.getElementById("endDate").value);
         const max = document.getElementById("maxParticipants").value;
+        const timeInputs = document.querySelectorAll('input[type="time"]');
+        const times = Array.from(timeInputs).map(input => input.value);
 
-        if (!start || !end || !max) {
+        if (!start || !end || !max || times.some(time => !time)) {
             alert('모든 필드를 입력해주세요.');
             return;
         }
@@ -546,6 +536,7 @@
             startDate: start.getTime(),
             endDate: end.getTime(),
             maxParticipants: parseInt(max),
+            times: times,
             createdAt: Date.now()
         };
 
@@ -606,6 +597,21 @@
             .catch((error) => {
                 console.error('Error resetting all data:', error);
                 alert('초기화 중 오류가 발생했습니다.');
+            });
+    }
+
+    function saveTime(dateKey) {
+        const timeInput = document.getElementById('timeInput_' + dateKey);
+        const time = timeInput.value;
+        if (!time) {
+            alert('시간을 입력해주세요.');
+            return;
+        }
+        db.ref(`duty_selector/times/${dateKey}`).set(time)
+            .then(() => { alert('시간이 저장되었습니다.'); })
+            .catch((error) => {
+                console.error('Error saving time:', error);
+                alert('저장 중 오류가 발생했습니다.');
             });
     }
 </script>
